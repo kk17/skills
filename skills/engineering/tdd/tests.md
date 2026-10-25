@@ -75,3 +75,24 @@ test("calculateTotal sums line items", () => {
   expect(calculateTotal([{ price: 10 }, { price: 5 }])).toBe(15);
 });
 ```
+
+## Red tests for hangs must not await the hang
+
+When the bug is "never settles" (a missing timeout, a hung fetch), the red test cannot
+`await` the promise — it never resolves, the harness kills the test at its timeout
+**without running cleanup**, and fake timers or stubbed globals leak into every later
+test, corrupting unrelated failures. Observe the outcome through a variable instead, so
+red fails fast and teardown always runs:
+
+```typescript
+// BAD: hangs in the red state — finally never runs, fake timers leak
+const settled = checkWithTimeout(deps(() => new Promise(() => {})));
+await expect(settled).resolves.toBe("allow"); // never settles before the fix exists
+
+// GOOD: observes outcome, fails fast while red, teardown always runs
+let outcome: "unsettled" | "allow" = "unsettled";
+checkWithTimeout(deps(() => new Promise(() => {}))).then((v) => { outcome = v; });
+await vi.advanceTimersByTimeAsync(2_600);
+expect(outcome).toBe("allow");
+```
+
