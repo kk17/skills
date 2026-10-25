@@ -36,3 +36,12 @@ When the shape of that interface is itself in question (how deep the module is, 
 - **Red before green.** Write the failing test first, then only enough code to pass it. Don't anticipate future tests or add speculative features.
 - **One slice at a time.** One seam, one test, one minimal implementation per cycle.
 - **Refactoring is not part of the loop.** It belongs to the review stage (see the `code-review` skill), not the red → green implementation cycle.
+
+## Check that your test can fail (and can fail for the right reason)
+
+A test that passes before the fix was written proves nothing. Two ways a test silently cannot fail:
+
+- **The assertion cannot reach the state it names.** "Remove the guard and the test should go red" is only a valid check if the guard's absence can actually change the outcome. When it can't, the criterion is unachievable — the code may be right, and the test proves less than it claims. Reason about the reachable states before trusting a mutation check: a promise that settles once can never reject after it resolved, so a handler for the second settle never sees the first one's state.
+- **The test's own setup erases the thing it observes.** If the fixture re-initializes the state under test, the assertion is green no matter what the production code does. Observe the state across the boundary instead of inside the fixture (e.g. read the module-level value directly in the next test, without the fixture that resets it).
+
+When a mutation check cannot turn the test red, do not force it: pin the behavior the guard is actually for, and record why the original criterion was unreachable — an unreachable criterion left undocumented reads as a missing test to the next person.
